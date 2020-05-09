@@ -2,6 +2,7 @@ package rollup
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
+import scala.math._
 
 class RollupOperator() {
 
@@ -15,13 +16,100 @@ class RollupOperator() {
  * The value is the aggregation result.
  * You are not allowed to change the definition of this function or the names of the aggregate functions.
  * */
+  def groupBy(dataset: RDD[Row], grpIndex: List[Int], aggIndex: Int, agg: String): RDD[(List[Any], Double)] = {
+    agg match {
+      case "COUNT" => 
+        val tupleSplit = (t : Row) => {
+          if (t.isNullAt(aggIndex)) 
+            (grpIndex.map(i => t(i)), 0.0)
+          else 
+            (grpIndex.map(i => t(i)), 1.0)
+          }
+        val seqOp = (accumulator: Double, element: Double) =>  accumulator + element
+        val combOp = (x: Double, y: Double) =>  x + y
+        val zeroVal = 0.0
+        dataset.map(tupleSplit).aggregateByKey(zeroVal)(seqOp, combOp) 
+      case "SUM" => 
+        val tupleSplit = (t : Row) => (grpIndex.map(i => t(i)), t(aggIndex).asInstanceOf[Double])
+        val seqOp = (accumulator: Double, element: Double) =>  accumulator + element
+        val combOp = (x: Double, y: Double) =>  x + y
+        val zeroVal = 0.0
+        dataset.map(tupleSplit).aggregateByKey(zeroVal)(seqOp, combOp) 
+      case "MIN" => 
+        def tupleSplit = (t : Row) => (grpIndex.map(i => t(i)),  t(aggIndex).asInstanceOf[Double])
+        def seqOp = (accumulator: Double, element: (Double)) =>  min(accumulator, element)
+        def combOp = (x: Double, y: Double) =>  min(x, y)
+        val zeroVal = Double.MaxValue
+        dataset.map(tupleSplit).aggregateByKey(zeroVal)(seqOp, combOp) 
+      case "MAX" => 
+        def tupleSplit =  (t : Row) => (grpIndex.map(i => t(i)), if (t.isNullAt(aggIndex)) 0.0 else 1.0)
+        def seqOp =(accumulator: Double, element: (Double)) =>  max(accumulator, element)
+        def combOp = (x: Double, y: Double) =>  max(x,y)
+        val zeroVal = Double.MinValue
+        dataset.map(tupleSplit).aggregateByKey(zeroVal)(seqOp, combOp) 
+      case "AVG" => 
+        def tupleSplit = (t : Row) => (grpIndex.map(i => t(i)), (if (t.isNullAt(aggIndex)) (0.0, 0.0) else (t(aggIndex).asInstanceOf[Double], 1.0)))
+        def seqOp = (acc: (Double, Double), x: (Double, Double)) =>  (acc._1 + x._1, acc._2 + x._2)
+        def combOp = (x: (Double, Double), y: (Double, Double)) =>   (x._1   + y._1, x._2  + y._2)
+        val zeroVal = (0.0, 0.0)
+        dataset.map(tupleSplit).aggregateByKey(zeroVal)(seqOp, combOp).map(v => (v._1, v._2._1 / v._2._2))
+    }
+  }
+
+  def rollUpNext(dataset: RDD[(List[Any], Any)], agg: String): RDD[(List[Any], Double)] = {
+    val normal = (t : (List[Any], Double)) => (t._1.reverse.tail.reverse, t._2)
+    agg match {
+      case "COUNT" => 
+        val seqOp = (accumulator: Double, element: Double) =>  accumulator + element
+        val combOp = (x: Double, y: Double) =>  x + y
+        val zeroVal = 0.0
+        dataset.asInstanceOf[RDD[(List[Any], Double)]].map(normal).aggregateByKey(zeroVal)(seqOp, combOp) 
+      case "SUM" => 
+        val seqOp = (accumulator: Double, element: Double) =>  accumulator + element
+        val combOp = (x: Double, y: Double) =>  x + y
+        val zeroVal = 0.0
+        dataset.asInstanceOf[RDD[(List[Any], Double)]].map(normal).aggregateByKey(zeroVal)(seqOp, combOp) 
+      case "MIN" => 
+        val seqOp = (accumulator: Double, element: (Double)) =>  min(accumulator, element)
+        val combOp = (x: Double, y: Double) =>  min(x, y)
+        val zeroVal = Double.MaxValue
+        dataset.asInstanceOf[RDD[(List[Any], Double)]].map(normal).aggregateByKey(zeroVal)(seqOp, combOp) 
+      case "MAX" => 
+        val seqOp =(accumulator: Double, element: (Double)) =>  max(accumulator, element)
+        val combOp = (x: Double, y: Double) =>  max(x,y)
+        val zeroVal = Double.MinValue
+        dataset.asInstanceOf[RDD[(List[Any], Double)]].map(normal).aggregateByKey(zeroVal)(seqOp, combOp) 
+      case "AVG" => 
+        val tupleSplit = (t : (List[Any], (Double, Double))) => (t._1.reverse.tail.reverse, t._2).asInstanceOf[(List[Any], (Double, Double))]
+        val seqOp  = (acc: (Double, Double), x: (Double, Double)) =>  (acc._1 + x._1, acc._2 + x._2)
+        val combOp = (x: (Double, Double), y: (Double, Double)) =>   (x._1   + y._1, x._2  + y._2)
+        val zeroVal = (0.0, 0.0)
+        dataset.asInstanceOf[RDD[(List[Any], (Double, Double))]].map(tupleSplit).aggregateByKey(zeroVal)(seqOp, combOp).map(v => (v._1, v._2._1 / v._2._2))
+    }
+  }
+
   def rollup(dataset: RDD[Row], groupingAttributeIndexes: List[Int], aggAttributeIndex: Int, agg: String): RDD[(List[Any], Double)] = {
-    //TODO Task 1
-    null
+    val aggIndex = aggAttributeIndex
+
+    val first_rollup = groupBy(dataset, groupingAttributeIndexes, aggIndex, if (agg == "AVG") "PAR_AVG" else agg)
+    var rollups = List(first_rollup)
+    var idx = 0
+
+    while (idx < groupingAttributeIndexes.length) {
+      val next_rollup = rollUpNext(rollups.head.asInstanceOf[RDD[(List[Any], Any)]], agg)
+      rollups = List(next_rollup) ++ rollups
+      idx += 1
+    }
+
+    val union = rollups.reduce(_ ++ _)
+    union
   }
 
   def rollup_naive(dataset: RDD[Row], groupingAttributeIndexes: List[Int], aggAttributeIndex: Int, agg: String): RDD[(List[Any], Double)] = {
-    //TODO naive algorithm for cube computation
-    null
+    val gIdx = groupingAttributeIndexes
+    val groups : List[RDD[(List[Any], Double)]] = 
+        gIdx.indices.map(gIdx.slice(0, _)).map(idx => groupBy(dataset, idx, aggAttributeIndex ,agg)).toList
+    val union = groups.reduce(_ ++ _)
+    union
   }
 }
