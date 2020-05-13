@@ -105,15 +105,15 @@ object Main {
       .map(x => x.toString.split('|'))
       .map(x => (x(0), x.slice(1, x.size).toList))
 
-    val exact: Construction = null
+    val exact: Construction = new ExactNN(sqlContext, rdd_corpus, .3)
 
-    val lsh: Construction = null
+  //  val lsh: Construction = new BaseConstruction(sqlContext, rdd_corpus)
 
     val ground = exact.eval(rdd_query)
-    val res = lsh.eval(rdd_query)
-
-    assert(recall(ground, res) > 0.83)
-    assert(precision(ground, res) > 0.70)
+    //val res = lsh.eval(rdd_query)
+    ground.foreach(x => println(x))
+   // assert(recall(ground, res) > 0.83)
+    //assert(precision(ground, res) > 0.70)
   }
 
 
@@ -122,8 +122,7 @@ object Main {
     val sc = SparkContext.getOrCreate(conf)
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 
-
-    //query0(sc, sqlContext)
+    query0(sc, sqlContext)
     //query1(sc, sqlContext)
     //query2(sc, sqlContext)
   }
