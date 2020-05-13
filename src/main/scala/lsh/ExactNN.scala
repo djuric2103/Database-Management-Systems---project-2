@@ -4,7 +4,6 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
 
 class ExactNN(sqlContext: SQLContext, data: RDD[(String, List[String])], threshold : Double) extends Construction with Serializable {
-
   override def eval(rdd: RDD[(String, List[String])]): RDD[(String, Set[String])] = {
     /*
     * This method performs a near-neighbor computation for the data points in rdd against the data points in data.
@@ -15,6 +14,11 @@ class ExactNN(sqlContext: SQLContext, data: RDD[(String, List[String])], thresho
     * return near-neighbors in (movie_name, [nn_movie_names]) as an RDD[(String, Set[String])]
     * */
 
-    null
+    rdd
+      .map(x => (x._1, data
+        .filter(y => y != x && x._2.intersect(y._2).size.asInstanceOf[Double]/x._2.union(y._2).size.asInstanceOf[Double] > threshold)
+        .map(y => y._1)
+        .collect()
+        .toSet))
   }
 }

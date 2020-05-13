@@ -7,6 +7,27 @@ class BaseConstruction(sqlContext: SQLContext, data: RDD[(String, List[String])]
   /*
   * Initialize LSH data structures here
   * */
+  lazy val univer = {
+    val uni = collection.mutable.Map[String, Int]()
+    data.foreach(x => {
+      x._2.foreach(y => uni.update(y, uni.getOrElse(y, uni.size + 1)))
+    })
+    uni
+  }
+
+  def minHash(keywords: List[String]): Int = {
+    keywords
+      .map(x => univer.getOrElse(x, Int.MaxValue))
+      .min
+  }
+
+  lazy val lsh : collection.immutable.Map[Int, Set[String]] = {
+    data
+      .map(x => (minHash(x._2), Set(x._1)))
+      .reduceByKey(_ ++ _)
+      .collect()
+      .toMap
+  }
 
   override def eval(rdd: RDD[(String, List[String])]): RDD[(String, Set[String])] = {
     /*
@@ -18,7 +39,7 @@ class BaseConstruction(sqlContext: SQLContext, data: RDD[(String, List[String])]
     * rdd: data points in (movie_name, [keyword_list]) format that represent the queries
     * return near-neighbors in (movie_name, [nn_movie_names]) as an RDD[(String, Set[String])]
     * */
-
-    null
+    rdd
+      .map(x => (x._1, lsh.getOrElse(minHash(x._2), Set[String]())))
   }
 }
