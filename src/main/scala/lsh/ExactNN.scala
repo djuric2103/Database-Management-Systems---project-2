@@ -6,8 +6,10 @@ import org.apache.spark.sql.SQLContext
 class ExactNN(sqlContext: SQLContext, data: RDD[(String, List[String])], threshold : Double) extends Construction with Serializable {
   def similar(x:(String, List[String]), y: (String, List[String])): Boolean = {
     if(x._1 == y._1) return false
-    val nom : Double = x._2.intersect(y._2).size
-    val denom : Double = x._2.union(y._2).size
+    val xSet = x._2.toSet
+    val ySet = y._2.toSet
+    val nom : Double = xSet.intersect(ySet).size
+    val denom : Double = xSet.union(ySet).size
     return nom / denom > threshold
   }
 
@@ -20,11 +22,12 @@ class ExactNN(sqlContext: SQLContext, data: RDD[(String, List[String])], thresho
     * threshold: the similarity threshold that defines near-neighbors
     * return near-neighbors in (movie_name, [nn_movie_names]) as an RDD[(String, Set[String])]
     * */
-    //rdd.map(x => (x._1, getSimilar(x)))
+    //val temp = data.union(("", ))
     rdd
       .cartesian(data)
       .filter(x => similar(x._1, x._2))
       .map(x => (x._1._1, Set(x._2._1)))
+      .union(rdd.map(x => (x._1, Set[String]())))
       .reduceByKey(_ ++ _)
   }
 }
