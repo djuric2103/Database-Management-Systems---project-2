@@ -5,7 +5,6 @@ import org.apache.spark.sql.SQLContext
 
 class ExactNN(sqlContext: SQLContext, data: RDD[(String, List[String])], threshold : Double) extends Construction with Serializable {
   def similar(x:(String, List[String]), y: (String, List[String])): Boolean = {
-    if(x._1 == y._1) return false
     val xSet = x._2.toSet
     val ySet = y._2.toSet
     val nom : Double = xSet.intersect(ySet).size

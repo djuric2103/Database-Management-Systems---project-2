@@ -8,24 +8,18 @@ class BaseConstruction(sqlContext: SQLContext, data: RDD[(String, List[String])]
   * Initialize LSH data structures here
   * */
 
-  //val a = new util.Random().nextInt()
-  val a = 3
+  val a = new util.Random().nextInt()
+
   def minHash(keywords: List[String]): Int = {
     keywords.map(x => x.hashCode ^ a).min
   }
 
   val lsh : RDD[(Int, Set[String])] = data.map(x => (minHash(x._2), Set(x._1))).reduceByKey(_ ++ _)
-  /*{
-    val d = data.map(x => (minHash(x._2), Set(x._1))).reduceByKey(_ ++ _)
-    d.foreach(x => println(x))
-
-    d
-  }*/
 
 
   def getSimilar(xHash: Int) : Set[String] = {
     println(xHash)
-    val sim : RDD[(Int, Set[String])] = lsh.filter(x => {x._1 == xHash})
+    val sim = lsh.filter(x => x._1 == xHash)
     if(sim.count() > 0) return sim.first()._2
     return Set[String]()
   }
@@ -40,9 +34,12 @@ class BaseConstruction(sqlContext: SQLContext, data: RDD[(String, List[String])]
     * rdd: data points in (movie_name, [keyword_list]) format that represent the queries
     * return near-neighbors in (movie_name, [nn_movie_names]) as an RDD[(String, Set[String])]
     * */
-    println(getSimilar(-1579453983))
-    println(getSimilar(-1205604449))
 
-    rdd.map(x => (x._1, getSimilar(minHash(x._2))))
+    rdd
+      .map(x => (minHash(x._2),x))
+      .join(lsh)
+      .map(x => (x._2._1._1, x._2._2))
+      .union(rdd.map(x => (x._1, Set[String]())))
+      .reduceByKey(_++_)
   }
 }
