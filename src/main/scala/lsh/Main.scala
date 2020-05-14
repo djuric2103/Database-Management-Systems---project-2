@@ -8,7 +8,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 
 
 object Main {
-  def recall(ground_truth : RDD[(String, Set[String])], lsh_truth : RDD[(String, Set[String])]) : Double = {
+  def recall(ground_truth: RDD[(String, Set[String])], lsh_truth: RDD[(String, Set[String])]): Double = {
     /*
     * Compute the recall for each near-neighbor LSH query against the accurate result
     * Then, compute the average across all queries
@@ -16,11 +16,16 @@ object Main {
     * lsh_truth: results of queries in (movie_name, [nn_movie_names]) format produced by an LSH Construction
     * returns average recall
     * */
-
-    0.0
+    val r = ground_truth
+      .join(lsh_truth)
+      .filter(x => x._2._1.size > 0)
+      .map(x => x._2._1.intersect(x._2._2).size.asInstanceOf[Double] / x._2._1.size.asInstanceOf[Double])
+      .mean()
+    println(r)
+    return r
   }
 
-  def precision(ground_truth : RDD[(String, Set[String])], lsh_truth : RDD[(String, Set[String])]) : Double = {
+  def precision(ground_truth: RDD[(String, Set[String])], lsh_truth: RDD[(String, Set[String])]): Double = {
     /*
     * Compute the precision for each near-neighbor LSH query against the accurate result
     * Then, compute the average across all queries
@@ -28,11 +33,16 @@ object Main {
     * lsh_truth: results of queries in (movie_name, [nn_movie_names]) format produced by an LSH Construction
     * returns average precision
     * */
-
-    0.0
+    val r = ground_truth
+      .join(lsh_truth)
+      .filter(x => x._2._2.size > 0)
+      .map(x => x._2._1.intersect(x._2._2).size.asInstanceOf[Double] / x._2._2.size.asInstanceOf[Double])
+      .mean()
+    println(r)
+    return r
   }
 
-  def query1 (sc : SparkContext, sqlContext : SQLContext) : Unit = {
+  def query1(sc: SparkContext, sqlContext: SQLContext): Unit = {
     val corpus_file = new File(getClass.getResource("/lsh-corpus-small.csv").getFile).getPath
 
     val rdd_corpus = sc
@@ -47,9 +57,9 @@ object Main {
       .map(x => x.toString.split('|'))
       .map(x => (x(0), x.slice(1, x.size).toList))
 
-    val exact : Construction = null
+    val exact: Construction = null
 
-    val lsh : Construction = null
+    val lsh: Construction = null
 
     val ground = exact.eval(rdd_query)
     val res = lsh.eval(rdd_query)
@@ -58,7 +68,7 @@ object Main {
     assert(precision(ground, res) > 0.98)
   }
 
-  def query2 (sc : SparkContext, sqlContext : SQLContext) : Unit = {
+  def query2(sc: SparkContext, sqlContext: SQLContext): Unit = {
     val corpus_file = new File(getClass.getResource("/lsh-corpus-small.csv").getFile).getPath
 
     val rdd_corpus = sc
@@ -73,9 +83,9 @@ object Main {
       .map(x => x.toString.split('|'))
       .map(x => (x(0), x.slice(1, x.size).toList))
 
-    val exact : Construction = null
+    val exact: Construction = null
 
-    val lsh : Construction = null
+    val lsh: Construction = null
 
     val ground = exact.eval(rdd_query)
     val res = lsh.eval(rdd_query)
@@ -84,7 +94,7 @@ object Main {
     assert(precision(ground, res) > 0.45)
   }
 
-  def query0 (sc : SparkContext, sqlContext : SQLContext) : Unit = {
+  def query0(sc: SparkContext, sqlContext: SQLContext): Unit = {
     val corpus_file = new File(getClass.getResource("/lsh-corpus-small.csv").getFile).getPath
 
     val rdd_corpus = sc
@@ -99,13 +109,13 @@ object Main {
       .map(x => x.toString.split('|'))
       .map(x => (x(0), x.slice(1, x.size).toList))
 
-    val exact : Construction = null
-
-    val lsh : Construction = null
+    val exact: Construction = new ExactNN(sqlContext, rdd_corpus, 0.3)
+    val lsh: Construction = new ORConstruction(List[BaseConstruction](new BaseConstruction(sqlContext, rdd_corpus),new BaseConstruction(sqlContext, rdd_corpus),new BaseConstruction(sqlContext, rdd_corpus),new BaseConstruction(sqlContext, rdd_corpus), new BaseConstruction(sqlContext, rdd_corpus), new BaseConstruction(sqlContext, rdd_corpus)))
 
     val ground = exact.eval(rdd_query)
     val res = lsh.eval(rdd_query)
-
+   // ground.foreach(x => println(x))
+    //res.foreach(x => println(x))
     assert(recall(ground, res) > 0.83)
     assert(precision(ground, res) > 0.70)
   }
@@ -116,9 +126,8 @@ object Main {
     val sc = SparkContext.getOrCreate(conf)
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 
-
-    //query0(sc, sqlContext)
+    query0(sc, sqlContext)
     //query1(sc, sqlContext)
     //query2(sc, sqlContext)
-  }     
+  }
 }

@@ -3,10 +3,26 @@ package lsh
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
 
-class BaseConstruction(sqlContext: SQLContext, data: RDD[(String, List[String])]) extends Construction {
+class BaseConstruction(sqlContext: SQLContext, data: RDD[(String, List[String])]) extends Construction with Serializable {
   /*
   * Initialize LSH data structures here
   * */
+
+  val a = new util.Random().nextInt()
+
+  def minHash(keywords: List[String]): Int = {
+    keywords.map(x => x.hashCode ^ a).min
+  }
+
+  val lsh : RDD[(Int, Set[String])] = data.map(x => (minHash(x._2), Set(x._1))).reduceByKey(_ ++ _)
+
+
+  def getSimilar(xHash: Int) : Set[String] = {
+    println(xHash)
+    val sim = lsh.filter(x => x._1 == xHash)
+    if(sim.count() > 0) return sim.first()._2
+    return Set[String]()
+  }
 
   override def eval(rdd: RDD[(String, List[String])]): RDD[(String, Set[String])] = {
     /*
@@ -19,6 +35,11 @@ class BaseConstruction(sqlContext: SQLContext, data: RDD[(String, List[String])]
     * return near-neighbors in (movie_name, [nn_movie_names]) as an RDD[(String, Set[String])]
     * */
 
-    null
+    rdd
+      .map(x => (minHash(x._2),x))
+      .join(lsh)
+      .map(x => (x._2._1._1, x._2._2))
+      .union(rdd.map(x => (x._1, Set[String]())))
+      .reduceByKey(_++_)
   }
 }
