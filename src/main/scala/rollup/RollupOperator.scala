@@ -3,19 +3,12 @@ package rollup
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 import scala.math._
+import scala.{Double}
 
 class RollupOperator() {
+// NONE OF THESE FUNCTIONS RETURN TUPLES WIT "ALL" VALUES, TUPLES THAT SHOULD BE (key1, key2, ALL, ALL, ALL), ARE (key1, key2)
 
-  /*
- * This method gets as input one dataset, the indexes of the grouping attributes of the rollup (ROLLUP clause)
- * the index of the attribute on which the aggregation is performed
- * and the aggregate function (it has to be one of "COUNT", "SUM", "MIN", "MAX", "AVG")
- * and returns an RDD with the result in the form of <key = List[Any], value = Double> pairs.
- * The key is used to uniquely identify a group that corresponds to a certain combination of attribute values.
- * You are free to do that following your own naming convention.
- * The value is the aggregation result.
- * You are not allowed to change the definition of this function or the names of the aggregate functions.
- * */
+  // Performs a group by certain keys
   def groupBy(dataset: RDD[Row], grpIndex: List[Int], aggIndex: Int, agg: String): RDD[(List[Any], Double)] = {
     agg match {
       case "COUNT" => 
@@ -30,9 +23,19 @@ class RollupOperator() {
         val zeroVal = 0.0
         dataset.map(tupleSplit).aggregateByKey(zeroVal)(seqOp, combOp) 
       case "SUM" => 
-        val tupleSplit = (t : Row) => (grpIndex.map(i => t(i)), t(aggIndex).asInstanceOf[Double])
-        val seqOp = (accumulator: Double, element: Double) =>  accumulator + element
-        val combOp = (x: Double, y: Double) =>  x + y
+        def tupleSplit = (t : Row) => 
+        {
+          t(aggIndex) match {
+            case x : Double => (grpIndex.map(i => t(i)), x)
+            case x : Int => (grpIndex.map(i => t(i)), x.toDouble)
+          }
+        }
+        def seqOp = (accumulator: Double, element: Double) =>  {
+          accumulator + element
+        }
+        def combOp = (x: Double, y: Double) =>  {
+          x + y
+        }
         val zeroVal = 0.0
         dataset.map(tupleSplit).aggregateByKey(zeroVal)(seqOp, combOp) 
       case "MIN" => 
@@ -56,6 +59,7 @@ class RollupOperator() {
     }
   }
 
+  // Do the next roll up, group the groups according to the next key.
   def rollUpNext(dataset: RDD[(List[Any], Any)], agg: String): RDD[(List[Any], Double)] = {
     val normal = (t : (List[Any], Double)) => (t._1.reverse.tail.reverse, t._2)
     agg match {
@@ -88,6 +92,16 @@ class RollupOperator() {
     }
   }
 
+    /*
+  * This method gets as input one dataset, the indexes of the grouping attributes of the rollup (ROLLUP clause)
+  * the index of the attribute on which the aggregation is performed
+  * and the aggregate function (it has to be one of "COUNT", "SUM", "MIN", "MAX", "AVG")
+  * and returns an RDD with the result in the form of <key = List[Any], value = Double> pairs.
+  * The key is used to uniquely identify a group that corresponds to a certain combination of attribute values.
+  * You are free to do that following your own naming convention.
+  * The value is the aggregation result.
+  * You are not allowed to change the definition of this function or the names of the aggregate functions.
+  * */
   def rollup(dataset: RDD[Row], groupingAttributeIndexes: List[Int], aggAttributeIndex: Int, agg: String): RDD[(List[Any], Double)] = {
     val aggIndex = aggAttributeIndex
 
@@ -102,13 +116,21 @@ class RollupOperator() {
     }
 
     val union = rollups.reduce(_ ++ _)
+    // val total_length = dataset.takeSample(true, 1).length
     union
+    // .map{case (l, acc) => 
+    //   val alls = (0 until total_length - l.length).map(x => "ALL")
+    //   (l ++ alls, acc)
+    // }
   }
 
+   /*
+  * This rollup operator does not reuse the values obtained by other group by's
+  * */
   def rollup_naive(dataset: RDD[Row], groupingAttributeIndexes: List[Int], aggAttributeIndex: Int, agg: String): RDD[(List[Any], Double)] = {
     val gIdx = groupingAttributeIndexes
     val groups : List[RDD[(List[Any], Double)]] = 
-        gIdx.indices.map(gIdx.slice(0, _)).map(idx => groupBy(dataset, idx, aggAttributeIndex ,agg)).toList
+        (-1 :: gIdx.indices.toList).map(i => gIdx.slice(0, i+1)).map(idx => groupBy(dataset, idx, aggAttributeIndex ,agg)).toList
     val union = groups.reduce(_ ++ _)
     union
   }

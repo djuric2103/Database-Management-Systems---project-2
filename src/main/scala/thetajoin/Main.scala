@@ -12,14 +12,32 @@ object Main {
     val spark = SparkSession
       .builder()
       .appName("Project2")
-      .master("local[*]")
       .getOrCreate()
+
+    spark.sparkContext.setLogLevel("ERROR")
 
     val attrIndex1 = 0
     val attrIndex2 = 0
 
-    val rdd1 = loadRDD(spark.sqlContext, "/dat1_4.csv")
-    val rdd2 = loadRDD(spark.sqlContext, "/dat2_4.csv")
+    val rdd1 = loadRDD(spark.sqlContext, "/user/group-48/test/dat1_6.csv")
+
+    // val rdd_1 = spark.sqlContext.read
+    // .format("com.databricks.spark.csv")
+    // // .option("header", "true")
+    // // .option("inferSchema", "true")
+    // // .option("delimiter", "|")
+    // .load("/user/group-48/test/dat1_4.csv")
+    // val rdd1 = rdd_1.rdd
+
+    val rdd2 = loadRDD(spark.sqlContext, "/user/group-48/test/dat2_9.csv")
+    
+    // val rdd_2 = spark.sqlContext.read
+    // .format("com.databricks.spark.csv")
+    // // .option("header", "true")
+    // // .option("inferSchema", "true")
+    // // .option("delimiter", "|")
+    // .load("/user/group-48/test/dat2_4.csv")
+    // val rdd2 = rdd_2.rdd
 
     val thetaJoin = new ThetaJoin(4)
     val res = thetaJoin.ineq_join(rdd1, rdd2, attrIndex1, attrIndex2, "<")
@@ -43,13 +61,11 @@ object Main {
   }
 
   def loadRDD(sqlContext: SQLContext, file: String): RDD[Row] = {
-    val input = new File(getClass.getResource(file).getFile).getPath
-
     sqlContext.read
       .format("com.databricks.spark.csv")
       .option("header", "false")
       .option("inferSchema", "true")
       .option("delimiter", ",")
-      .load(input).rdd
+      .load(file).rdd
   }
 }
