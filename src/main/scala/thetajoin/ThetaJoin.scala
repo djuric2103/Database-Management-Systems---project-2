@@ -12,18 +12,18 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
   case object No extends State
   case object Yes extends State
   case object Unsure extends State
-  
+
    def ineq_join(dat1: RDD[Row], dat2: RDD[Row], attrIndex1: Int, attrIndex2: Int, condition:String): RDD[(Int, Int)] = {
     val r = dat1.count()
     val s = dat2.count()
     val n = partitions
     val block = s*r/n
-    println(s"Block size: $block")
+    // println(s"Block size: $block")
     val (n_left, n_right) = {
       val aux = sqrt(s*r/n)
       (round(r/aux).toInt, round(s/aux).toInt)
     }
-    println(s"Left: $n_left, Right: $n_right")
+    // println(s"Left: $n_left, Right: $n_right")
 
     val rand = scala.util.Random
     val rows = dat1.takeSample(true, n_left-1).map(r => r(attrIndex2) match {
@@ -50,8 +50,8 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
           var j = 0
           val row_blocks = (rows.length/block_side).toInt
 
-          println(s"Rows: $new_rows")
-          println(s"Cols: $new_cols")
+          // println(s"Rows: $new_rows")
+          // println(s"Cols: $new_cols")
 
           while (i < new_rows.length-1){
             while (j < new_cols.length-1){
@@ -61,13 +61,13 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
                     if (new_rows(i) > new_cols(j + 1)-1) Yes
                     else if(new_rows(i+1)-1 <= new_cols(j)) No
                     else Unsure
-                    println(s"($i > $j) [${new_rows(i)},${new_rows(i + 1)}]x[${new_cols(j)},${new_cols(j+1)}] => $aux")
+                    // println(s"($i > $j) [${new_rows(i)},${new_rows(i + 1)}]x[${new_cols(j)},${new_cols(j+1)}] => $aux")
                     aux
                   case "<" => 
                     val aux = if (new_rows(i + 1)-1 < new_cols(j)) Yes
                     else if(new_rows(i) >= new_cols(j+1)-1) No
                     else Unsure
-                    println(s"($i < $j) [${new_rows(i)},${new_rows(i + 1)}]x[${new_cols(j)},${new_cols(j+1)}] => $aux")
+                    // println(s"($i < $j) [${new_rows(i)},${new_rows(i + 1)}]x[${new_cols(j)},${new_cols(j+1)}] => $aux")
                     aux
                 }
               val elem : ((Int, Int), (Int, State)) =  ((new_rows(i), new_cols(j)), (i*(new_rows.length-1) + j, b))
