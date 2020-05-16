@@ -59,7 +59,7 @@ object Main {
       .map(x => (x(0), x.slice(1, x.size).toList))
 
     val exact: Construction = new ExactNN(sqlContext, rdd_corpus, 0.3)
-    val lsh: Construction = new ANDConstruction((for(i <- 0 to 4) yield new BaseConstruction(sqlContext, rdd_corpus)).toList)
+    val lsh: Construction = new ANDConstruction((for(i <- 0 to 4) yield new BaseConstructionBroadcast(sqlContext, rdd_corpus)).toList)
 
     val ground = exact.eval(rdd_query)
     val res = lsh.eval(rdd_query)
@@ -85,7 +85,7 @@ object Main {
 
     val exact: Construction = new ExactNN(sqlContext, rdd_corpus, 0.3)
 
-    val lsh: Construction = new ORConstruction((for(i <- 0 until 3) yield new BaseConstruction(sqlContext, rdd_corpus)).toList)
+    val lsh: Construction = new ORConstruction((for(i <- 0 until 3) yield new BaseConstructionBroadcast(sqlContext, rdd_corpus)).toList)
 
     val ground = exact.eval(rdd_query)
     val res = lsh.eval(rdd_query)

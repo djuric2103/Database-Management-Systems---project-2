@@ -28,7 +28,6 @@ class BaseConstructionBroadcast(sqlContext: SQLContext, data: RDD[(String, List[
     * rdd: data points in (movie_name, [keyword_list]) format that represent the queries
     * return near-neighbors in (movie_name, [nn_movie_names]) as an RDD[(String, Set[String])]
     * */
-
     rdd.map(x => (x._1, lsh_broadcasted.value.get(minHash(x._2)).getOrElse(Set[String]())))
   }
 }
