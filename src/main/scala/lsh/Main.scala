@@ -96,7 +96,13 @@ object Main {
   }
 
   def query0(sc: SparkContext, sqlContext: SQLContext): Unit = {
-    val corpus_file = new File(getClass.getResource("/lsh-corpus-small.csv").getFile).getPath
+    //val corpus_file = new File(getClass.getResource("/lsh-corpus-small.csv").getFile).getPath
+    val corpus_file = sqlContext.read
+      .format("com.databricks.spark.csv")
+      .option("header", "true")
+      .option("inferSchema", "true")
+      .option("delimiter", "|")
+      .load("/user/cs422/lineorder_small.tbl")
 
     val rdd_corpus = sc
       .textFile(corpus_file)
@@ -122,7 +128,7 @@ object Main {
 
 
   def main(args: Array[String]) {
-    val conf = new SparkConf().setAppName("app").setMaster("local[*]")
+    val conf = new SparkConf().setAppName("app")//.setMaster("local[*]")
     val sc = SparkContext.getOrCreate(conf)
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 
