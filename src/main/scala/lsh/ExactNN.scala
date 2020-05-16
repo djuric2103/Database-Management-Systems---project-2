@@ -7,8 +7,8 @@ class ExactNN(sqlContext: SQLContext, data: RDD[(String, List[String])], thresho
   def similar(x:(String, List[String]), y: (String, List[String])): Boolean = {
     val xSet = x._2.toSet
     val ySet = y._2.toSet
-    val nom : Double = xSet.intersect(ySet).size
-    val denom : Double = xSet.union(ySet).size
+    val nom : Double = xSet.intersect(ySet).size.asInstanceOf[Double]
+    val denom : Double = xSet.union(ySet).size.asInstanceOf[Double]
     return nom / denom > threshold
   }
 

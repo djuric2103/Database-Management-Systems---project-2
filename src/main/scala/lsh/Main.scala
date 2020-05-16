@@ -21,7 +21,8 @@ object Main {
       .filter(x => x._2._1.size > 0)
       .map(x => x._2._1.intersect(x._2._2).size.asInstanceOf[Double] / x._2._1.size.asInstanceOf[Double])
       .mean()
-    println(r)
+    //println(r)
+
     return r
   }
 
@@ -38,7 +39,7 @@ object Main {
       .filter(x => x._2._2.size > 0)
       .map(x => x._2._1.intersect(x._2._2).size.asInstanceOf[Double] / x._2._2.size.asInstanceOf[Double])
       .mean()
-    println(r)
+    //println(r)
     return r
   }
 
@@ -57,9 +58,8 @@ object Main {
       .map(x => x.toString.split('|'))
       .map(x => (x(0), x.slice(1, x.size).toList))
 
-    val exact: Construction = null
-
-    val lsh: Construction = null
+    val exact: Construction = new ExactNN(sqlContext, rdd_corpus, 0.3)
+    val lsh: Construction = new ANDConstruction((for(i <- 0 to 4) yield new BaseConstruction(sqlContext, rdd_corpus)).toList)
 
     val ground = exact.eval(rdd_query)
     val res = lsh.eval(rdd_query)
@@ -83,12 +83,13 @@ object Main {
       .map(x => x.toString.split('|'))
       .map(x => (x(0), x.slice(1, x.size).toList))
 
-    val exact: Construction = null
+    val exact: Construction = new ExactNN(sqlContext, rdd_corpus, 0.3)
 
-    val lsh: Construction = null
+    val lsh: Construction = new ORConstruction((for(i <- 0 until 3) yield new BaseConstruction(sqlContext, rdd_corpus)).toList)
 
     val ground = exact.eval(rdd_query)
     val res = lsh.eval(rdd_query)
+
 
     assert(recall(ground, res) > 0.9)
     assert(precision(ground, res) > 0.45)
@@ -110,12 +111,11 @@ object Main {
       .map(x => (x(0), x.slice(1, x.size).toList))
 
     val exact: Construction = new ExactNN(sqlContext, rdd_corpus, 0.3)
-    val lsh: Construction = new ORConstruction(List[BaseConstruction](new BaseConstruction(sqlContext, rdd_corpus),new BaseConstruction(sqlContext, rdd_corpus),new BaseConstruction(sqlContext, rdd_corpus),new BaseConstruction(sqlContext, rdd_corpus), new BaseConstruction(sqlContext, rdd_corpus), new BaseConstruction(sqlContext, rdd_corpus)))
+    val lsh: Construction = new BaseConstruction(sqlContext, rdd_corpus)
 
     val ground = exact.eval(rdd_query)
     val res = lsh.eval(rdd_query)
-   // ground.foreach(x => println(x))
-    //res.foreach(x => println(x))
+
     assert(recall(ground, res) > 0.83)
     assert(precision(ground, res) > 0.70)
   }
@@ -127,7 +127,7 @@ object Main {
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 
     query0(sc, sqlContext)
-    //query1(sc, sqlContext)
-    //query2(sc, sqlContext)
+    query1(sc, sqlContext)
+    query2(sc, sqlContext)
   }
 }

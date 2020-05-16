@@ -13,9 +13,12 @@ class ANDConstruction(children: List[Construction]) extends Construction {
     var neighbour: RDD[(String, Set[String])] = null;
     for (h <- children) {
       if (neighbour == null) neighbour = h.eval(rdd)
-      else neighbour
+      else neighbour = neighbour
         .join(h.eval(rdd))
         .map(x => (x._1, x._2._1.intersect(x._2._2)))
+    //  neighbour.sortBy(_._2.size).foreach(x => print(x._1 + "\t" +x._2.size + "\t"))
+     // println()
+
     }
     return neighbour
   }
