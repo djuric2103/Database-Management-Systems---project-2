@@ -11,13 +11,13 @@ class BaseConstruction(sqlContext: SQLContext, data: RDD[(String, List[String])]
   * Initialize LSH data structures here
   * */
 
-  var a = Randomized.getNext()
+  var a = new util.Random().nextInt()
 
   def minHash(keywords: List[String]): Int = {
     keywords.map(x => x.hashCode ^ a).min
   }
 
-    val lsh : RDD[(Int, Set[String])] = data.map(x => (minHash(x._2), List(x._1))).reduceByKey(_ ++ _).map(x => (x._1, x._2.toSet))
+  val lsh : RDD[(Int, Set[String])] = data.map(x => (minHash(x._2), List(x._1))).reduceByKey(_ ++ _).map(x => (x._1, x._2.toSet))
 
   override def eval(rdd: RDD[(String, List[String])]): RDD[(String, Set[String])] = {
     /*

@@ -21,7 +21,7 @@ object Main {
       .filter(x => x._2._1.size > 0)
       .map(x => x._2._1.intersect(x._2._2).size.asInstanceOf[Double] / x._2._1.size.asInstanceOf[Double])
       .mean()
-    //println(r)
+    println(r)
 
     return r
   }
@@ -39,7 +39,7 @@ object Main {
       .filter(x => x._2._2.size > 0)
       .map(x => x._2._1.intersect(x._2._2).size.asInstanceOf[Double] / x._2._2.size.asInstanceOf[Double])
       .mean()
-    //println(r)
+    println(r)
     return r
   }
 
@@ -111,7 +111,7 @@ object Main {
       .map(x => (x(0), x.slice(1, x.size).toList))
 
     val exact: Construction = new ExactNN(sqlContext, rdd_corpus, 0.3)
-    val lsh: Construction = new BaseConstruction(sqlContext, rdd_corpus)
+    val lsh: Construction = new BaseConstructionBroadcast(sqlContext, rdd_corpus)
 
     val ground = exact.eval(rdd_query)
     val res = lsh.eval(rdd_query)
