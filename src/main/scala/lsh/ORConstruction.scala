@@ -13,7 +13,7 @@ class ORConstruction(children: List[Construction]) extends Construction {
     var neighbour : RDD[(String, Set[String])] = null;
     for(h <- children) {
       if(neighbour == null) neighbour = h.eval(rdd)
-      else neighbour
+      else neighbour = neighbour
         .join(h.eval(rdd))
         .map(x => (x._1, x._2._1.union(x._2._2)))
     }

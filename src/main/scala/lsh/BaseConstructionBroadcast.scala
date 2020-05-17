@@ -8,6 +8,21 @@ class BaseConstructionBroadcast(sqlContext: SQLContext, data: RDD[(String, List[
   * Initialize LSH data structures here
   * You need to broadcast the data structures to all executors and use them locally
   * */
+  val a = new util.Random().nextInt()
+
+  def minHash(keywords: List[String]): Int = {
+    keywords.map(x => x.hashCode ^ a).min
+  }
+
+  //val l = data.map(x => (minHash(x._2), List(x._1))).reduceByKey(_ ++ _).map(x => (x._1, x._2.toSet))
+  val lsh_broadcasted = sqlContext
+    .sparkContext
+    .broadcast(data
+      .map(x => (minHash(x._2), List(x._1)))
+      .reduceByKey(_ ++ _)
+      .map(x => (x._1, x._2.toSet))
+      .collect()
+      .toMap)
 
   override def eval(rdd: RDD[(String, List[String])]): RDD[(String, Set[String])] = {
     /*
@@ -19,7 +34,6 @@ class BaseConstructionBroadcast(sqlContext: SQLContext, data: RDD[(String, List[
     * rdd: data points in (movie_name, [keyword_list]) format that represent the queries
     * return near-neighbors in (movie_name, [nn_movie_names]) as an RDD[(String, Set[String])]
     * */
-
-    null
+    rdd.map(x => (x._1, lsh_broadcasted.value.get(minHash(x._2)).getOrElse(Set[String]())))
   }
 }
