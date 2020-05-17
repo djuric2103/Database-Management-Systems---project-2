@@ -1,13 +1,15 @@
 package thetajoin
 
 import org.apache.spark.rdd.RDD
+import org.apache.spark.Partitioner
 import org.apache.spark.sql.Row
 
 import org.slf4j.LoggerFactory
 import scala.math._
 
 class ThetaJoin(partitions: Int) extends java.io.Serializable {
-  val logger = LoggerFactory.getLogger("ThetaJoin")
+  // val logger = LoggerFactory.getLogger("ThetaJoin").setLevel(Level.ERROR)
+  
   class State
   case object No extends State
   case object Yes extends State
@@ -18,25 +20,34 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
     val s = dat2.count()
     val n = partitions
     val block = s*r/n
-    // println(s"Block size: $block")
-    val (n_left, n_right) = {
-      val aux = sqrt(s*r/n)
-      (round(r/aux).toInt, round(s/aux).toInt)
+    val n_real_left = sqrt((n*s)/r)
+    val n_real_right = sqrt((n*r)/s)
+    
+    // In case the partitions do not match well, approximate the problem.
+    val (n_left, n_right) = (round(n_real_left).toInt, round(n_real_right).toInt) match {
+      case (0, 0) => throw new ArithmeticException("The block sizes are wrong")
+      case (0, _) => (1, n)
+      case (_, 0) => (n, 1)
+      case (x, y) => (x, y) // In this case, we might have less or more partitions. Not desirable It will not use more than n partitions, but it might use less.
     }
+
+    for(i <- 0 until 500) println(s"s=$s, r=$r, n=$n, left=${sqrt((n*s)/r)}, right = ${sqrt((n*r)/s)}. There are ${n_left}x${n_right} of size ${s*r/n}")
     // println(s"Left: $n_left, Right: $n_right")
 
     val rand = scala.util.Random
-    val rows = dat1.takeSample(true, n_left-1).map(r => r(attrIndex2) match {
+    val rows = dat1.takeSample(true, n_left-1).map(r => r(attrIndex1) match {
       case x : Int => x
       case x : Double => x.toInt
       case x : Float => x.toInt
       case x : String => x.toInt
+      case x => x.toString().toInt
     })
     val cols = dat2.takeSample(true, n_right-1).map(r => r(attrIndex2) match {
       case x : Int => x
       case x : Double => x.toInt
       case x : Float => x.toInt
       case x : String => x.toInt
+      case x => x.toString().toInt
     })
     
     val new_rows = (Int.MaxValue :: (Int.MinValue :: rows.toList).reverse).reverse
@@ -70,7 +81,7 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
                     // println(s"($i < $j) [${new_rows(i)},${new_rows(i + 1)}]x[${new_cols(j)},${new_cols(j+1)}] => $aux")
                     aux
                 }
-              val elem : ((Int, Int), (Int, State)) =  ((new_rows(i), new_cols(j)), (i*(new_rows.length-1) + j, b))
+              val elem : ((Int, Int), (Int, State)) =  ((new_rows(i), new_cols(j)), (i*(new_cols.length-1) + j, b))
               // println(elem)
               seq += elem
               j += 1
@@ -85,7 +96,9 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
     val region_map : Map[Int, State] = {
       (for(((_, _), (idx, state)) <- regions) yield {(idx, state)}).toMap
     }
-
+    println("Regions")
+    region_map.foreach(println)
+    println()
     // val i2left : Map[Int, Set[Int]] = (for(((r, c), (idx, state)) <- regions) yield {(idx, r)})
     //   .groupBy(_._1).mapValues{_.map(_._2).toSet}
     //   .filter{case (i, s) => 
@@ -123,11 +136,12 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
       }
 
       part.map(t => {
-        val aux = t(attrIndex1) match {
+        val aux = t(attrIndex2) match {
           case x : Int => x
           case x : Double => x.toInt
           case x : Float => x.toInt
           case x : String => x.toInt
+          case x => x.toString().toInt
         }
         (aux, right2i(lower_bound(aux, Int.MinValue :: cols.toList, 0, cols.length)))
       })
@@ -154,11 +168,13 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
           case x : Double => x.toInt
           case x : Float => x.toInt
           case x : String => x.toInt
+          case x => x.toString().toInt
         }
         (aux, left2i(lower_bound(aux, Int.MinValue :: rows.toList, 0, rows.length)))
       })
     }
 
+    println("Reached cartessian product")
     val valid_indices = (0 until n).filter{i => region_map(i) != No}
     val l_splits = valid_indices.map(i => l_keys.filter{x => x._2.contains(i)}.map(x => x._1))
     val r_splits = valid_indices.map(i => r_keys.filter{x => x._2.contains(i)}.map(x => x._1))
@@ -169,15 +185,30 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
     // Prune unnecessary condition checks
     .map{case (rdd, i) => {
       region_map(i) match {
-        case Yes => rdd
+        case Yes => 
+          //rdd
+          rdd.map{case x => (i%n -> x)}
         case Unsure => 
           condition match {
-            case ">"=> rdd.filter{case (x, y) => x > y}
-            case "<"=> rdd.filter{case (x, y) => x < y}
+            case ">"=> 
+              //rdd.filter{case (x, y) => x > y}
+              rdd.flatMap{case (x, y) => if (x > y) Some(i%n -> (x,y)) else None}
+            case "<"=> 
+              //rdd.filter{case (x, y) => x < y}
+              rdd.flatMap{case (x, y) => if (x < y) Some(i%n -> (x,y)) else None}
           }
       }
     }}.toList
 
-    result.reduce(_ ++ _)
+    result.reduce(_ ++ _).partitionBy(new Partitioner {
+      def numPartitions: Int = n
+      def getPartition(key: Any): Int = key.asInstanceOf[Int]
+    }).map{case (k, v) => v}
+
+    // .partitionBy(new Partitioner {
+    //   def numPartitions: Int = size
+    //   def getPartition(key: Any): Int = 
+    //     (key.asInstanceOf[Long] * numPartitions.toLong / startValues.last).toInt
+    // })
   }
 }
