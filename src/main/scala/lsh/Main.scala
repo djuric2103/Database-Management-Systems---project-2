@@ -1,8 +1,7 @@
 package lsh
 
-import java.io.File
+import java.io._
 
-import org.apache.spark
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkConf, SparkContext}
@@ -45,14 +44,14 @@ object Main {
   }
 
   def query1(sc: SparkContext, sqlContext: SQLContext): Unit = {
-    val corpus_file = new File(getClass.getResource("/lsh-corpus-large.csv").getFile).getPath
+    val corpus_file = new File(getClass.getResource("/lsh-corpus-small.csv").getFile).getPath
 
     val rdd_corpus = sc
       .textFile(corpus_file)
       .map(x => x.toString.split('|'))
       .map(x => (x(0), x.slice(1, x.size).toList))
 
-    val query_file = new File(getClass.getResource("/lsh-query-6.csv").getFile).getPath
+    val query_file = new File(getClass.getResource("/lsh-query-1.csv").getFile).getPath
 
     val rdd_query = sc
       .textFile(query_file)
@@ -68,6 +67,7 @@ object Main {
     assert(recall(ground, res) > 0.7)
     assert(precision(ground, res) > 0.98)
   }
+
 
   def query2(sc: SparkContext, sqlContext: SQLContext): Unit = {
     val corpus_file = new File(getClass.getResource("/lsh-corpus-large.csv").getFile).getPath
@@ -153,8 +153,8 @@ object Main {
     val sc = SparkContext.getOrCreate(conf)
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 
-    query0(sc, sqlContext)
+    //query0(sc, sqlContext)
     query1(sc, sqlContext)
-    query2(sc, sqlContext)
+    //query2(sc, sqlContext)
   }
 }
