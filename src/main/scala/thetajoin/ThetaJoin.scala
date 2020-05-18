@@ -196,7 +196,7 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
             case ">" => (l : Int, r : Int) => l > r 
             case "<" => (l : Int, r : Int) => l < r 
           }
-
+  
       (state match {
         case Yes => a.flatMap(x => b.map(y => (x,y)))
         case _ => a.flatMap(x => b.flatMap{y => if (evaluate(x,y)) Some(x,y) else None})
