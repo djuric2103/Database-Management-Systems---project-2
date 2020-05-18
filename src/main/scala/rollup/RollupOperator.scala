@@ -6,18 +6,13 @@ import scala.math._
 import scala.{Double}
 
 class RollupOperator() {
-// NONE OF THESE FUNCTIONS RETURN TUPLES WIT "ALL" VALUES, TUPLES THAT SHOULD BE (key1, key2, ALL, ALL, ALL), ARE (key1, key2)
-
   // Performs a group by certain keys
   def groupBy(dataset: RDD[Row], grpIndex: List[Int], aggIndex: Int, agg: String): RDD[(List[Any], Double)] = {
     agg match {
       case "COUNT" => 
-        val tupleSplit = (t : Row) => {
-          if (t.isNullAt(aggIndex)) 
-            (grpIndex.map(i => t(i)), 0.0)
-          else 
-            (grpIndex.map(i => t(i)), 1.0)
-          }
+        val tupleSplit = (t : Row) => 
+          if (t.isNullAt(aggIndex)) (grpIndex.map(i => t(i)), 0.0)
+          else (grpIndex.map(i => t(i)), 1.0)
         val seqOp = (accumulator: Double, element: Double) =>  accumulator + element
         val combOp = (x: Double, y: Double) =>  x + y
         val zeroVal = 0.0
@@ -49,6 +44,7 @@ class RollupOperator() {
     }
   }
 
+  // Performs a group by certain keys with aggregate average
   def groupByAVG(dataset: RDD[Row], grpIndex: List[Int], aggIndex: Int): RDD[(List[Any], (Double, Double))] = {
     def tupleSplit = (t : Row) => (grpIndex.map(i => t(i)), (if (t.isNullAt(aggIndex)) (0.0, 0.0) else (t(aggIndex).toString().toDouble, 1.0)))
     def seqOp = (acc: (Double, Double), x: (Double, Double)) =>  (acc._1 + x._1, acc._2 + x._2)
@@ -57,7 +53,7 @@ class RollupOperator() {
     dataset.map(tupleSplit).aggregateByKey(zeroVal)(seqOp, combOp)
   }
 
-  // Do the next roll up, group the groups according to the next key.
+  // Do the next average roll up, group the groups according to the next key.
   def rollUpNextAvg(dataset: RDD[(List[Any], (Double, Double))]): RDD[(List[Any], (Double, Double))] = {
     val tupleSplit = (t : (List[Any], (Double, Double))) => (t._1.reverse.tail.reverse, t._2)
     val seqOp  = (acc: (Double, Double), x: (Double, Double)) =>  (acc._1 + x._1, acc._2 + x._2)
@@ -66,6 +62,7 @@ class RollupOperator() {
     dataset.map(tupleSplit).aggregateByKey(zeroVal)(seqOp, combOp) 
   }
 
+  // Do the next roll up, group the groups according to the next key.
   def rollUpNext(dataset: RDD[(List[Any], Double)], agg: String): RDD[(List[Any], Double)] = {
     val normal = (t : (List[Any], Double)) => (t._1.reverse.tail.reverse, t._2)
     (agg match {
