@@ -54,7 +54,7 @@ object Main {
     var groupingList = List(0, 1, 2)
     val rollup = new RollupOperator
 
-    val i = (4 : Int).toString()
+    val i = (115 : Int).toString()
     // val res = rollup.rollup(rdd, groupingList, 3, "SUM")
     // res.saveAsTextFile("/user/group-48/result" ++ i)
 

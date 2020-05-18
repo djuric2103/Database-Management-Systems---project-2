@@ -28,5 +28,12 @@ class ExactNN(sqlContext: SQLContext, data: RDD[(String, List[String])], thresho
       .map(x => (x._1._1, Set(x._2._1)))
       .union(rdd.map(x => (x._1, Set[String]())))
       .reduceByKey(_ ++ _)
+    /*rdd
+      .cartesian(data)
+      .filter(x => similar(x._1, x._2))
+      .map(x => (x._1._1, List(x._2._1)))
+      .union(rdd.map(x => (x._1, List[String]())))
+      .reduceByKey(_ ++ _)
+      .map(x => (x._1, x._2.toSet))*/
   }
 }
