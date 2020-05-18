@@ -3,7 +3,6 @@ package thetajoin
 import org.apache.spark.rdd.RDD
 import org.apache.spark.Partitioner
 import org.apache.spark.sql.Row
-
 import org.slf4j.LoggerFactory
 import scala.math._
 
@@ -83,15 +82,15 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
     // Map from the region index and the necessity of checking the tuple
     
     val region_map : Map[Int, State] = (for(((_, _), (idx, state)) <- regions) yield {(idx, state)}).toMap
-    val left2i : Map[Int, Set[Int]] = (for(((r, c), (idx, state)) <- regions) yield {(r, idx)}).groupBy(_._1).map{case (k,v) => (k, v.map(_._2).filter(i => region_map.get(i) != No).toSet)}
-    val right2i : Map[Int, Set[Int]] = (for(((r, c), (idx, state)) <- regions) yield {(c, idx)}).groupBy(_._1).map{case (k,v) => (k, v.map(_._2).filter(i => region_map.get(i) != No).toSet)}
+    val left2i : Map[Int, Set[Int]] = (for(((r, c), (idx, state)) <- regions) yield {(r, idx)}).groupBy(_._1).map{case (k,v) => (k, v.map(_._2).filter(i => region_map(i) != No).toSet)}
+    val right2i : Map[Int, Set[Int]] = (for(((r, c), (idx, state)) <- regions) yield {(c, idx)}).groupBy(_._1).map{case (k,v) => (k, v.map(_._2).filter(i => region_map(i) != No).toSet)}
     
     // println(region_map)
     // println(left2i)
     // println(right2i)
     val partitioner = new Partitioner {
       def numPartitions: Int = n
-      def getPartition(key: Any): Int = key.asInstanceOf[Int]
+      def getPartition(key: Any): Int = key.asInstanceOf[Int] % n
     }
 
     // val l_keys : RDD[(Int, Int)] = dat2.flatMap(t => {
@@ -101,7 +100,7 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
     // })//.partitionBy(partitioner)
     // println("Evaluating left")
 
-    val l_keys : RDD[(Int, Int)] = dat2.mapPartitions(partition => {
+    val l_keys : RDD[(Int, Int)] = dat1.mapPartitions(partition => {
 
       def lower_bound(x : Int, l : List[Int], ini : Int, end : Int) : Int = {
         val m = (ini + end)/2
@@ -120,14 +119,14 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
       partition.flatMap{t => 
         val aux = toInt(t(attrIndex1))
         val index = lower_rows(lower_bound(aux, lower_rows, 0, rows.length))
-        assert(left2i.contains(index), s"$left2i does not contain $index")
+        // println(s"Going to search for ${aux} in ${lower_rows} in ${left2i}")
         val indices = left2i(index)
         indices.map(i => (i->aux))
       }
     })//.partitionBy(partitioner)
     
     val l_splits : RDD[(Int, Iterable[Int])] = l_keys.groupByKey()
-    // l_splits.count()
+    // l_splits.count
     // println("Left evaluated")
     // println("Evaluating right")
     val r_keys : RDD[(Int, Int)] = dat2.mapPartitions(partition => {
@@ -148,7 +147,9 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
       
       partition.flatMap{t => 
         val aux = toInt(t(attrIndex2))
-        val indices = right2i(lower_cols(lower_bound(aux, lower_cols, 0, cols.length)))
+        val index = lower_bound(aux, lower_cols, 0, cols.length)
+        // println(s"Going to search for ${aux} in ${lower_cols} in ${right2i}")
+        val indices = right2i(lower_cols(index))
         indices.map(i => (i->aux))
       }
     })//.partitionBy(partitioner)
@@ -165,17 +166,22 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
     // join.count
     // println("Join")
     // join.collect.foreach(println)
-    // println("Join evaluated")
 
     val partitioned : RDD[(Int, (Iterable[Int], Iterable[Int]))] = join.partitionBy(partitioner)
     
-    // join.count
-    // println("Partitioning evaluated")
-    // partitioned.foreachPartition{p => p.toList.foreach(println)}
+    // partitioned.count
+    // println("Partitioning")
+    // partitioned.collect.foreach(println) //foreachPartition{p => p.toList.foreach(println)}
+    // partitioned.map{case (k, (a,b)) => k}.collect.foreach{k => println(s"Going to search for ${k} in ${region_map}")}
     val blocks : RDD[(State, (Iterable[Int], Iterable[Int]))] = partitioned.map{case (k, (a,b)) => (region_map(k), (a,b))}
     // blocks.count
     // println("Blocks")
     // blocks.collect.foreach(println)
+
+    val (_,(a,b)) = (Unsure,(List(1, 2, 3),List(0, 2, 7, 9, 12, 18, 4)))
+    def eval : (Int, Int) => Boolean = (l : Int, r : Int) => l < r 
+    val aux = a.flatMap(x => b.flatMap{y => if (eval(x,y)) Some(x,y) else None})
+
     // println(s"${blocks.count} blocks evaluated")
     val result : RDD[(Int, Int)] = blocks.mapPartitions{partition => {
       if (partition.hasNext){
@@ -184,6 +190,7 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
       // partition.toList.foreach(println)
       // println("Partition...")
       val (state, (a, b)) = partition.next
+      // println((a.toList, b.toList))
       
       def evaluate : (Int, Int) => Boolean = condition match {
             case ">" => (l : Int, r : Int) => l > r 
@@ -191,10 +198,8 @@ class ThetaJoin(partitions: Int) extends java.io.Serializable {
           }
 
       (state match {
-        case Yes => 
-          a.flatMap(x => b.map(y => (x,y)))
-        case _ => 
-          a.flatMap(x => b.flatMap{y => if (evaluate(x,y)) Some(x,y) else None})
+        case Yes => a.flatMap(x => b.map(y => (x,y)))
+        case _ => a.flatMap(x => b.flatMap{y => if (evaluate(x,y)) Some(x,y) else None})
       }).iterator
       
       } else List[(Int,Int)]().iterator
