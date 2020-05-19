@@ -14,7 +14,6 @@ class RollupOperator() {
           if (t.isNullAt(aggIndex)) (grpIndex.map(i => t(i)), 0.0)
           else (grpIndex.map(i => t(i)), 1.0)
         val seqOp = (accumulator: Double, element: Double) =>  accumulator + element
-        val combOp = (x: Double, y: Double) =>  x + y
         dataset.map(tupleSplit).aggregateByKey(0.0)(seqOp,seqOp) 
       case "SUM" => 
         def tupleSplit = (t : Row) => (grpIndex.map(i => t(i)),  t(aggIndex).toString().toDouble)
