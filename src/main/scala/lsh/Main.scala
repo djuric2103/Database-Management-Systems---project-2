@@ -1,11 +1,7 @@
 package lsh
 
 import java.io.File
-import java.text.SimpleDateFormat
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
-import org.apache.arrow.flatbuf.Date
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Row, SQLContext, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
@@ -224,19 +220,15 @@ object Main {
   }
 
 
- /* def main(args: Array[String]) {
+  /*def main(args: Array[String]) {
     val conf = new SparkConf().setAppName("app").setMaster("local[*]")
     val sc = SparkContext.getOrCreate(conf)
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
-    //val r = sc.textFile("RDDSaved")
-    //r.foreach(x => println(x))
-    //query0(sc, sqlContext)
-    //query1(sc, sqlContext)
-    //query2(sc, sqlContext)
-    //queryLocal(sc, sqlContext, "medium", "5")
-    queryLocalTest(sc, sqlContext, "medium", "3", false)
-  }
-*/
+    query0(sc, sqlContext)
+    query1(sc, sqlContext)
+    query2(sc, sqlContext)
+  }*/
+
 
   def query_cluster_FILE(c : String, q : String, sqlContext : SQLContext): Unit ={
     val rdd_corpus = loadRDD(sqlContext, "/user/cs422/lsh-corpus-"+c+".csv").map(x => x.toString.split('|')).map(x => (x(0), x.slice(1, x.size).toList))
@@ -251,18 +243,9 @@ object Main {
     val rdd_corpus = loadRDD(sqlContext, "/user/cs422/lsh-corpus-"+c+".csv").map(x => x.toString.split('|')).map(x => (x(0), x.slice(1, x.size).toList))
     val rdd_querry = loadRDD(sqlContext, "/user/cs422/lsh-query-"+q+".csv").map(x => x.toString.split('|')).map(x => (x(0), x.slice(1, x.size).toList))
     //println(rdd_corpus.count() + " " + rdd_querry.count())
-    val base: Construction = {
-      new ANDConstruction(
-        (for(i <- 0 until 5)
-          yield new ORConstruction(
-            (for(j <- 0 until 5)
-              yield {
-                if(b) new BaseConstructionBroadcast(sqlContext, rdd_corpus)
-                else new BaseConstruction(sqlContext, rdd_corpus)
-              }).toList)).toList)
-    }
+    val base: Construction =  if(b) new BaseConstructionBroadcast(sqlContext, rdd_corpus) else new BaseConstruction(sqlContext, rdd_corpus)
     val lsh = base.eval(rdd_querry)
-    lsh.saveAsTextFile("/user/group-48/EXACT_Q_"+q+"_FINISHED"+ (if(b)"BROADCAS" else ""))
+    lsh.saveAsTextFile("/user/group-48/EXACT_Q_"+q+"_FINISHED11_"+ (if(b)"BROADCAST1" else ""))
   }
 
  def main(args: Array[String]) {
@@ -278,5 +261,6 @@ object Main {
    //query_cluster_FILE("small", "1", sqlContext)
    //query_cluster_FILE("small", "2", sqlContext)
    //query_cluster("small", "2", sqlContext, true)
+   query_cluster_FILE_lsh("large","7",sqlContext, true)
  }
 }

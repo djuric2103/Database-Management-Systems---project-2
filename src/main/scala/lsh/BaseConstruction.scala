@@ -2,9 +2,7 @@ package lsh
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SQLContext}
-import org.apache.spark.sql.functions.rand
 
-import scala.util.Random
 
 class BaseConstruction(sqlContext: SQLContext, data: RDD[(String, List[String])]) extends Construction with Serializable {
   /*

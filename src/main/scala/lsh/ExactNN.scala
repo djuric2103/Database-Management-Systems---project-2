@@ -3,8 +3,6 @@ package lsh
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
 
-import scala.util.Random
-
 class ExactNN(sqlContext: SQLContext, data: RDD[(String, List[String])], threshold: Double) extends Construction with Serializable {
   def similar(x: (String, List[String]), y: (String, List[String])): Boolean = {
     val xSet = x._2.toSet

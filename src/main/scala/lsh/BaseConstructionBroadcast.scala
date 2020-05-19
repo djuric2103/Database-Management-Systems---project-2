@@ -14,7 +14,6 @@ class BaseConstructionBroadcast(sqlContext: SQLContext, data: RDD[(String, List[
     keywords.map(x => (x.hashCode() ^ a).hashCode()).min
   }
 
-  //val l = data.map(x => (minHash(x._2), List(x._1))).reduceByKey(_ ++ _).map(x => (x._1, x._2.toSet))
   val lsh_broadcasted = sqlContext
     .sparkContext
     .broadcast(data
