@@ -25,8 +25,18 @@ class ExactNN(sqlContext: SQLContext, data: RDD[(String, List[String])], thresho
     rdd
       .cartesian(data)
       .filter(x => similar(x._1, x._2))
-      .map(x => (x._1._1, Set(x._2._1)))
+      .map(x => (x._1._1, Set[String](x._2._1)))
       .union(rdd.map(x => (x._1, Set[String]())))
       .reduceByKey(_ ++ _)
+    /*val temp = rdd.map(x => (x._1, List[String]()))
+    rdd
+      .map(x => (x._1, x._2.toSet))
+      .cartesian(data.map(x => (x._1, x._2.toSet)))
+      //.filter(x => similar(x._1, x._2))
+      .filter(x => x._1._2.intersect(x._2._2).size.asInstanceOf[Double] / x._1._2.union(x._2._2).size.asInstanceOf[Double] > threshold)
+      .map(x => (x._1._1, List(x._2._1)))
+      .union(temp)
+      .reduceByKey(_ ++ _)
+      .map(x => (x._1, x._2.toSet))*/
   }
 }
