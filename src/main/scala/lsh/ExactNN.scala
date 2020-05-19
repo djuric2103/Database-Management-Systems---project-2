@@ -4,13 +4,13 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
 
 class ExactNN(sqlContext: SQLContext, data: RDD[(String, List[String])], threshold : Double) extends Construction with Serializable {
-  def similar(x:(String, List[String]), y: (String, List[String])): Boolean = {
-    val xSet = x._2.toSet
-    val ySet = y._2.toSet
-    val nom : Double = xSet.intersect(ySet).size.asInstanceOf[Double]
-    val denom : Double = xSet.union(ySet).size.asInstanceOf[Double]
+  /*def similar(x:(String, Set[String]), y: (String, Set[String])): Boolean = {
+    //val xSet = x._2.toSet
+    //val ySet = y._2.toSet
+    val nom : Double = x._2.intersect(y._2).size.asInstanceOf[Double]
+    val denom : Double = x._2.union(y._2).size.asInstanceOf[Double]
     return nom / denom > threshold
-  }
+  }*/
 
   override def eval(rdd: RDD[(String, List[String])]): RDD[(String, Set[String])] = {
     /*
@@ -22,18 +22,21 @@ class ExactNN(sqlContext: SQLContext, data: RDD[(String, List[String])], thresho
     * return near-neighbors in (movie_name, [nn_movie_names]) as an RDD[(String, Set[String])]
     * */
     //val temp = data.union(("", ))
-    rdd
+    /*rdd
       .cartesian(data)
       .filter(x => similar(x._1, x._2))
       .map(x => (x._1._1, Set(x._2._1)))
       .union(rdd.map(x => (x._1, Set[String]())))
-      .reduceByKey(_ ++ _)
-    /*rdd
-      .cartesian(data)
-      .filter(x => similar(x._1, x._2))
+      .reduceByKey(_ ++ _)*/
+    val temp = rdd.map(x => (x._1, List[String]()))
+    rdd
+      .map(x => (x._1, x._2.toSet))
+      .cartesian(data.map(x => (x._1, x._2.toSet)))
+      //.filter(x => similar(x._1, x._2))
+      .filter(x => x._1._2.intersect(x._2._2).size.asInstanceOf[Double] / x._1._2.union(x._2._2).size.asInstanceOf[Double] > threshold)
       .map(x => (x._1._1, List(x._2._1)))
-      .union(rdd.map(x => (x._1, List[String]())))
+      .union(temp)
       .reduceByKey(_ ++ _)
-      .map(x => (x._1, x._2.toSet))*/
+      .map(x => (x._1, x._2.toSet))
   }
 }

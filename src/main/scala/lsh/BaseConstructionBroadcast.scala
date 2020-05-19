@@ -11,7 +11,7 @@ class BaseConstructionBroadcast(sqlContext: SQLContext, data: RDD[(String, List[
   val a = new util.Random().nextInt()
 
   def minHash(keywords: List[String]): Int = {
-    keywords.map(x => x.hashCode ^ a).min
+    keywords.map(x => (x.hashCode() ^ a).hashCode()).min
   }
 
   //val l = data.map(x => (minHash(x._2), List(x._1))).reduceByKey(_ ++ _).map(x => (x._1, x._2.toSet))
