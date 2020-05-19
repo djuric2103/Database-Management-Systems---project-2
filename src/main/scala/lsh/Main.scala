@@ -21,11 +21,11 @@ object Main {
     * returns average recall
     * */
     val r = ground_truth
+      .filter(x => x._2.size > 0)
       .join(lsh_truth)
-      .filter(x => x._2._1.size > 0)
       .map(x => x._2._1.intersect(x._2._2).size.asInstanceOf[Double] / x._2._1.size.asInstanceOf[Double])
       .mean()
-    println(r)
+    println("Recall"+r)
 
     return r
   }
@@ -39,11 +39,10 @@ object Main {
     * returns average precision
     * */
     val r = ground_truth
-      .join(lsh_truth)
-      .filter(x => x._2._2.size > 0)
+      .join(lsh_truth.filter(x => x._2.size > 0))
       .map(x => x._2._1.intersect(x._2._2).size.asInstanceOf[Double] / x._2._2.size.asInstanceOf[Double])
       .mean()
-    println(r)
+    println("Precision"+r)
     return r
   }
 
@@ -130,11 +129,11 @@ object Main {
   }
 
   def getRDD(s : String, sc: SparkSession) : RDD[(String, List[String])] ={
-    sc.read
+    sc.sqlContext.read
       .format("com.databricks.spark.csv")
       .option("header", "false")
       .option("inferSchema", "true")
-      .option("delimiter", "|")
+      .option("delimiter", ",")
       .load("/user/cs422/"+s)
       .rdd
       .map(x => x.toString.split('|'))
@@ -147,36 +146,99 @@ object Main {
     val rdd_querry = temp._2
     //println(rdd_corpus.count() + " " + rdd_querry.count())
     val exact : Construction = new ExactNN(sqlContext, rdd_corpus, 0.3)
-    //val base : Construction = new BaseConstruction(sqlContext, rdd_corpus)
+    val base : Construction = new BaseConstructionBroadcast(sqlContext, rdd_corpus)
     //val baseBroadcast : Construction = new BaseConstructionBroadcast(sqlContext, rdd_corpus)
     //val date : String= DateTimeFormatter.ofPattern("dd HH mm").format(LocalDateTime.now)
     val ground = exact.eval(rdd_querry)
-    //val lsh = base.eval(rdd_querry)
-    //recall(ground, lsh)
-    //precision(ground, lsh)
-    ground.saveAsTextFile("/user/group-48/EXACT_Q_"+q+"_NEW_1_1_1")
+    val lsh = base.eval(rdd_querry)
+    recall(ground, lsh)
+    precision(ground, lsh)
+    //ground.saveAsTextFile("/user/group-48/EXACT_Q_"+q+"_NEW_3")
     //lsh.saveAsTextFile("/user/group-48/lsh "+date)
 
     //val lshBroadcast = baseBroadcast.eval(rdd_querry)
     //lshBroadcast.saveAsTextFile("/user/group-48/lshBroadcast")
   }
 
-  /*def main(args: Array[String]) {
+  def queryLocal(sc: SparkContext, sqlContext: SQLContext, c: String, q: String): Unit = {
+    val corpus_file = new File(getClass.getResource("/lsh-corpus-"+c+".csv").getFile).getPath
+
+    val rdd_corpus = sc
+      .textFile(corpus_file)
+      .map(x => x.toString.split('|'))
+      .map(x => (x(0), x.slice(1, x.size).toList))
+
+    val query_file = new File(getClass.getResource("/lsh-query-"+q+".csv").getFile).getPath
+
+    val rdd_query = sc
+      .textFile(query_file)
+      .map(x => x.toString.split('|'))
+      .map(x => (x(0), x.slice(1, x.size).toList))
+
+    val exact: Construction = new ExactNN(sqlContext, rdd_corpus, 0.3)
+    //val lsh: Construction = new BaseConstruction(sqlContext, rdd_corpus)
+
+
+    val ground = exact.eval(rdd_query)
+    ground.saveAsTextFile("ExactQ"+q)
+    //val res = lsh.eval(rdd_query)
+    //assert(recall(ground, res) > 0.83)
+    //assert(precision(ground, res) > 0.70)
+    //    res.saveAsTextFile("RDDSaved")
+  }
+  def queryLocalTest(sc: SparkContext, sqlContext: SQLContext, c: String, q: String, b : Boolean): Unit = {
+    val corpus_file = new File(getClass.getResource("/lsh-corpus-"+c+".csv").getFile).getPath
+
+    val rdd_corpus = sc
+      .textFile(corpus_file)
+      .map(x => x.toString.split('|'))
+      .map(x => (x(0), x.slice(1, x.size).toList))
+
+    val query_file = new File(getClass.getResource("/lsh-query-"+q+".csv").getFile).getPath
+
+    val rdd_query = sc
+      .textFile(query_file)
+      .map(x => x.toString.split('|'))
+      .map(x => (x(0), x.slice(1, x.size).toList))
+
+    val ground : RDD[(String, Set[String])] = sc.textFile("ExactQ"+q).map(x => (x.substring(1, x.indexOf(",Set(")),x.substring(x.indexOf(",Set(") + 5, x.length - 2).split(',').toSet))
+    //ground.foreach(x => println(x))
+    val lsh: Construction = {
+      new ORConstruction(
+        (for(i <- 0 until 6)
+          yield new ANDConstruction(
+            (for(j <- 0 until 6)
+              yield {
+                if(b) new BaseConstructionBroadcast(sqlContext, rdd_corpus)
+                else new BaseConstruction(sqlContext, rdd_corpus)
+              }).toList)).toList)
+    }
+    val res = lsh.eval(rdd_query)
+    recall(ground, res)
+    precision(ground, res)
+//    res.saveAsTextFile("LSH "+ (if(b) "Broadcast" else "Base") + q)
+    //    res.saveAsTextFile("RDDSaved")
+  }
+
+
+ /* def main(args: Array[String]) {
     val conf = new SparkConf().setAppName("app").setMaster("local[*]")
     val sc = SparkContext.getOrCreate(conf)
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
     //val r = sc.textFile("RDDSaved")
     //r.foreach(x => println(x))
-    query0(sc, sqlContext)
-    query1(sc, sqlContext)
-    query2(sc, sqlContext)
+    //query0(sc, sqlContext)
+    //query1(sc, sqlContext)
+    //query2(sc, sqlContext)
+    //queryLocal(sc, sqlContext, "medium", "5")
+    queryLocalTest(sc, sqlContext, "medium", "3", false)
   }*/
 
 
   def main(args: Array[String]) {
     val spark = SparkSession
       .builder()
-      .appName("Project2-group-1")
+      .appName("Project2-group-48")
       .getOrCreate()
     val sqlContext = spark.sqlContext
     query_cluster("medium", "3", sqlContext, spark)
