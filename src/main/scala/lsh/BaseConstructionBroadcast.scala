@@ -23,7 +23,6 @@ class BaseConstructionBroadcast(sqlContext: SQLContext, data: RDD[(String, List[
       .map(x => (x._1, x._2.toSet))
       .collect()
       .toMap)
-
   override def eval(rdd: RDD[(String, List[String])]): RDD[(String, Set[String])] = {
     /*
     * This method performs a near-neighbor computation for the data points in rdd against the data points in data.
