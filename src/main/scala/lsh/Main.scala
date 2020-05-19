@@ -220,14 +220,14 @@ object Main {
   }
 
 
-  /*def main(args: Array[String]) {
+  def main(args: Array[String]) {
     val conf = new SparkConf().setAppName("app").setMaster("local[*]")
     val sc = SparkContext.getOrCreate(conf)
     val sqlContext = new org.apache.spark.sql.SQLContext(sc)
     query0(sc, sqlContext)
     query1(sc, sqlContext)
     query2(sc, sqlContext)
-  }*/
+  }
 
 
   def query_cluster_FILE(c : String, q : String, sqlContext : SQLContext): Unit ={
@@ -248,7 +248,7 @@ object Main {
     lsh.saveAsTextFile("/user/group-48/EXACT_Q_"+q+"_FINISHED11_"+ (if(b)"BROADCAST1" else ""))
   }
 
- def main(args: Array[String]) {
+ /*def main(args: Array[String]) {
     val spark = SparkSession
       .builder()
       .appName("Project2-group-48")
@@ -262,5 +262,5 @@ object Main {
    //query_cluster_FILE("small", "2", sqlContext)
    //query_cluster("small", "2", sqlContext, true)
    query_cluster_FILE_lsh("large","7",sqlContext, true)
- }
+ }*/
 }
