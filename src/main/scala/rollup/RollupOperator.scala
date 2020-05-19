@@ -64,7 +64,7 @@ class RollupOperator() {
       case "MAX" => 
         val seqOp =(accumulator: Double, element: (Double)) =>  max(accumulator, element)
         dataset.map(normal).aggregateByKey(Double.MinValue)(seqOp, seqOp) 
-    })//.cache
+    })//.persist
   }
 
     /*
@@ -84,7 +84,7 @@ class RollupOperator() {
 
     agg match {
       case "AVG" =>
-        val first_rollup = groupByAVG(dataset, groupingAttributeIndexes, aggIndex)//.cache
+        val first_rollup = groupByAVG(dataset, groupingAttributeIndexes, aggIndex)//.persist
         var rollups = List(first_rollup)
         
         while (idx < groupingAttributeIndexes.length) {
@@ -94,7 +94,7 @@ class RollupOperator() {
         }
         rollups.reduce(_ ++ _).map(v => (v._1, v._2._1 / v._2._2))
       case _ => 
-        val first_rollup = groupBy(dataset, groupingAttributeIndexes, aggIndex,  agg)//.cache
+        val first_rollup = groupBy(dataset, groupingAttributeIndexes, aggIndex,  agg)//.persist
         var rollups = List(first_rollup)
 
         while (idx < groupingAttributeIndexes.length) {
@@ -102,7 +102,7 @@ class RollupOperator() {
           rollups = List(next_rollup) ++ rollups
           idx += 1
         }
-        val union = rollups.reduce(_ ++ _)
+        val union = rollups.reduce((x,y) => x.union(y)).persist
         union.count
         union
     }
@@ -113,7 +113,7 @@ class RollupOperator() {
   * */
   def rollup_naive(dataset: RDD[Row], groupingAttributeIndexes: List[Int], aggAttributeIndex: Int, agg: String): RDD[(List[Any], Double)] = {
     val groups : List[RDD[(List[Any], Double)]] = 
-        (-1 :: groupingAttributeIndexes.indices.toList).map(i => groupingAttributeIndexes.slice(0, i+1)).map(idx => groupBy(dataset, idx, aggAttributeIndex ,agg)).toList
+        (-1 :: groupingAttributeIndexes.indices.toList).map(i => groupingAttributeIndexes.slice(0, i+1)).map(idx => groupBy(dataset, idx, aggAttributeIndex ,agg).persist).toList
     
     groups.foreach(_.count)
     val union = groups.reduce(_ ++ _)
